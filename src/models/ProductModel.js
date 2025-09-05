@@ -44,7 +44,7 @@ const productSchema = mongoose.Schema(
     },
     dosage: {
       type: String,
-      required: [true, " dosage is required"],
+      required: false,
       // min: [0, "Stock cannot be negative"],
       // default: 0,
     },
