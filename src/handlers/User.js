@@ -237,7 +237,7 @@ class User extends Response {
       const token = jwt.sign(
         { id: user._id, email: user.email, role: user.role },
         process.env.SECRET_KEY,
-        { expiresIn: "1h" }
+        { expiresIn: "7d" }
       );
 
       return this.sendResponse(req, res, {

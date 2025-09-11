@@ -3,14 +3,128 @@ const { SaleModel } = require("../models/SaleModel");
 const { ProductModel } = require("../models");
 const { DailySaleModel } = require("../models");
 const { default: mongoose } = require("mongoose");
+const { InvoiceModel } = require("../models/InvoiceModel");
 
 class SalesController extends Response {
   // Record a new sale
+  // recordSale = async (req, res) => {
+  //   try {
+  //     const { products, customerName } = req.body; // `products` should be an array of { productId, quantity } objects.
+  //     // Validate input
+  //     console.log(customerName);
+  //     if (!Array.isArray(products) || products.length === 0) {
+  //       return this.sendResponse(req, res, {
+  //         data: null,
+  //         message: "Products array is required and cannot be empty",
+  //         status: 400,
+  //       });
+  //     }
+
+  //     let totalSaleAmount = 0;
+  //     let saleRecords = [];
+  //     try {
+  //       for (const items of products) {
+  //         console.log(items);
+  //         const { id, quantity } = items;
+  //         console.log(id, quantity);
+  //         if (!id || !quantity || quantity <= 0) {
+  //           return this.sendResponse(req, res, {
+  //             data: null,
+  //             message:
+  //               "Each product must have a valid product ID and a positive quantity",
+  //             status: 400,
+  //           });
+  //         }
+
+  //         // Fetch product
+  //         const product = await ProductModel.findById(id);
+  //         if (!product) {
+  //           return this.sendResponse(req, res, {
+  //             data: null,
+  //             message: `Product with ID ${id} not found`,
+  //             status: 404,
+  //           });
+  //         }
+
+  //         // Check stock
+  //         if (product.stock < quantity) {
+  //           return this.sendResponse(req, res, {
+  //             data: null,
+  //             message: `Insufficient stock for ${product?.name}`,
+  //             status: 400,
+  //           });
+  //         }
+
+  //         // Calculate total price
+  //         const priceAtSale = product.price;
+  //         const totalPrice = priceAtSale * quantity;
+
+  //         // Create sale record
+  //         const sale = new SaleModel({
+  //           product: product._id,
+  //           quantity,
+  //           priceAtSale,
+  //           totalPrice,
+  //           customerName: customerName,
+  //         });
+  //         await sale.save();
+  //         saleRecords.push(sale);
+
+  //         // Update product stock
+  //         product.stock -= quantity;
+  //         await product.save();
+
+  //         totalSaleAmount += totalPrice;
+  //       }
+
+  //       // Update DailySales
+  //       const today = new Date();
+  //       today.setHours(11, 0, 0, 0); // Normalize to midnight
+
+  //       const dailySales = await DailySaleModel.findOne({
+  //         date: today,
+  //       });
+  //       if (dailySales) {
+  //         dailySales.totalSales += totalSaleAmount;
+  //         dailySales.totalTransactions += products.length;
+  //         await dailySales.save();
+  //       } else {
+  //         // Create a new DailySales document for today
+  //         const newDailySales = new DailySaleModel({
+  //           date: today,
+  //           totalSales: totalSaleAmount,
+  //           totalTransactions: products.length,
+  //         });
+  //         await newDailySales.save();
+  //       }
+
+  //       return this.sendResponse(req, res, {
+  //         data: { saleRecords },
+  //         message: "Sales recorded successfully",
+  //         status: 201,
+  //       });
+  //     } catch (error) {
+  //       console.error(error);
+  //       return this.sendResponse(req, res, {
+  //         data: null,
+  //         message: "Failed to record sales",
+  //         status: 500,
+  //       });
+  //     }
+  //   } catch (error) {
+  //     console.error(error);
+  //     return this.sendResponse(req, res, {
+  //       data: null,
+  //       message: "An unexpected error occurred",
+  //       status: 500,
+  //     });
+  //   }
+  // };
+
   recordSale = async (req, res) => {
     try {
-      const { products, customerName } = req.body; // `products` should be an array of { productId, quantity } objects.
-      // Validate input
-      console.log(customerName);
+      const { products, customerName, invoiceId } = req.body; // products = [{ id, quantity }]
+
       if (!Array.isArray(products) || products.length === 0) {
         return this.sendResponse(req, res, {
           data: null,
@@ -21,26 +135,25 @@ class SalesController extends Response {
 
       let totalSaleAmount = 0;
       let saleRecords = [];
+      let invoiceItems = [];
 
       try {
-        for (const item of products) {
-          const { productId, quantity } = item;
-
-          if (!productId || !quantity || quantity <= 0) {
+        for (const items of products) {
+          const { id, quantity } = items;
+          if (!id || !quantity || quantity <= 0) {
             return this.sendResponse(req, res, {
               data: null,
-              message:
-                "Each product must have a valid product ID and a positive quantity",
+              message: "Each product must have a valid product ID and a positive quantity",
               status: 400,
             });
           }
 
           // Fetch product
-          const product = await ProductModel.findById(productId);
+          const product = await ProductModel.findById(id);
           if (!product) {
             return this.sendResponse(req, res, {
               data: null,
-              message: `Product with ID ${productId} not found`,
+              message: `Product with ID ${id} not found`,
               status: 404,
             });
           }
@@ -58,16 +171,25 @@ class SalesController extends Response {
           const priceAtSale = product.price;
           const totalPrice = priceAtSale * quantity;
 
-          // Create sale record
+          // Save product-level sale record
           const sale = new SaleModel({
             product: product._id,
             quantity,
             priceAtSale,
             totalPrice,
-            customerName: customerName?.name,
+            customerName,
           });
           await sale.save();
           saleRecords.push(sale);
+
+          // Push into invoice items
+          invoiceItems.push({
+            productId: product._id,
+            name: product.name,
+            quantity,
+            rate: priceAtSale,
+            amount: totalPrice,
+          });
 
           // Update product stock
           product.stock -= quantity;
@@ -76,32 +198,41 @@ class SalesController extends Response {
           totalSaleAmount += totalPrice;
         }
 
-        // Update DailySales
+        // Generate invoiceId (e.g. INV-20250911-001)
         const today = new Date();
-        today.setHours(11, 0, 0, 0); // Normalize to midnight
 
-        const dailySales = await DailySaleModel.findOne({
-          date: today,
+        // Save invoice
+        const invoice = new InvoiceModel({
+          invoiceId,
+          customerName,
+          items: invoiceItems,
+          subtotal: totalSaleAmount,
+          grandTotal: totalSaleAmount, // (add discount/tax logic if needed)
         });
+        await invoice.save();
+
+        // Update DailySales
+        today.setHours(11, 0, 0, 0); // normalize
+        const dailySales = await DailySaleModel.findOne({ date: today });
         if (dailySales) {
           dailySales.totalSales += totalSaleAmount;
-          dailySales.totalTransactions += products.length;
+          dailySales.totalTransactions += 1;
           await dailySales.save();
         } else {
-          // Create a new DailySales document for today
           const newDailySales = new DailySaleModel({
             date: today,
             totalSales: totalSaleAmount,
-            totalTransactions: products.length,
+            totalTransactions: 1,
           });
           await newDailySales.save();
         }
 
         return this.sendResponse(req, res, {
-          data: { saleRecords },
-          message: "Sales recorded successfully",
+          data: { invoice, saleRecords },
+          message: "Invoice generated and sales recorded successfully",
           status: 201,
         });
+
       } catch (error) {
         console.error(error);
         return this.sendResponse(req, res, {
@@ -110,6 +241,7 @@ class SalesController extends Response {
           status: 500,
         });
       }
+
     } catch (error) {
       console.error(error);
       return this.sendResponse(req, res, {
@@ -120,11 +252,14 @@ class SalesController extends Response {
     }
   };
 
+
   getTodayTotalSales = async (req, res) => {
     try {
       const today = new Date();
       today.setHours(11, 0, 0, 0); // Normalize to midnight
+      console.log(today);
       const dailySales = await DailySaleModel.findOne({ date: today });
+      console.log(dailySales);
       const totalSales = dailySales ? dailySales.totalSales : 0;
 
       return this.sendResponse(req, res, {
@@ -151,6 +286,25 @@ class SalesController extends Response {
       console.log(sales);
       return this.sendResponse(req, res, {
         data: sales,
+        message: "All sales retrieved successfully",
+        status: 200,
+      });
+    } catch (error) {
+      console.error(error);
+      return this.sendResponse(req, res, {
+        data: null,
+        message: "Failed to retrieve sales",
+        status: 500,
+      });
+    }
+  };
+  getAllInvoices = async (req, res) => {
+    try {
+      const invoice = await InvoiceModel.find()
+        .sort({ soldAt: -1 });
+
+      return this.sendResponse(req, res, {
+        data: invoice,
         message: "All sales retrieved successfully",
         status: 200,
       });
