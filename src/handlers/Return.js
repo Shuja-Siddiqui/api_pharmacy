@@ -44,6 +44,7 @@ class ReturnController extends Response {
 
       await newReturn.save();
 
+      // Update stock
       const stock = Number(productRecord.stock);
       if (isNaN(stock)) {
         return responseHandler.sendResponse(req, res, {
@@ -55,13 +56,26 @@ class ReturnController extends Response {
       productRecord.stock = stock + parseInt(quantity);
       await productRecord.save();
 
+      // Update daily returns
       await this.updateDailyReturns(quantity * returnPrice, product, quantity);
+
+      // Update daily sales
       const today = new Date();
       today.setHours(11, 0, 0, 0);
-      const sale = await DailySaleModel.findOne({ date: today });
-      console.log(sale);
-      sale.totalSales -= quantity * returnPrice;
+
+      let sale = await DailySaleModel.findOne({ date: today });
+
+      if (!sale) {
+        sale = new DailySaleModel({
+          date: today,
+          totalSales: -(quantity * returnPrice),
+        });
+      } else {
+        sale.totalSales -= quantity * returnPrice;
+      }
+
       await sale.save();
+
       return responseHandler.sendResponse(req, res, {
         data: newReturn,
         message: "Return recorded successfully",
@@ -76,6 +90,7 @@ class ReturnController extends Response {
       });
     }
   };
+
 
   updateDailyReturns = async (returnAmount, product, quantity) => {
     const today = new Date();
