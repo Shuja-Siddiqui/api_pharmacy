@@ -317,6 +317,27 @@ class SalesController extends Response {
       });
     }
   };
+
+  getLastInvoiceNumber = async (req, res) => {
+  try {
+    const lastInvoice = await InvoiceModel.findOne().sort({ createdAt: -1 }); // latest by created date
+    const lastInvoiceId = lastInvoice ? lastInvoice.invoiceId : null;
+
+    return this.sendResponse(req, res, {
+      data: { lastInvoiceId },
+      message: "Last invoice retrieved successfully",
+      status: 200,
+    });
+  } catch (error) {
+    console.error(error);
+    return this.sendResponse(req, res, {
+      data: null,
+      message: "Failed to retrieve last invoice",
+      status: 500,
+    });
+  }
+};
+
 }
 
 module.exports = { SalesController };

@@ -9,6 +9,7 @@ router.post("/", auth, handler.recordSale);
 router.get("/today", handler.getTodayTotalSales);
 router.get("/all", handler.getAllSales);
 router.get("/invoices", handler.getAllInvoices);
+router.get("/last-invoice", handler.getLastInvoiceNumber);
 
 
 module.exports = router;
