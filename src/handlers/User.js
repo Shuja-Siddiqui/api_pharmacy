@@ -237,7 +237,7 @@ class User extends Response {
       const token = jwt.sign(
         { id: user._id, email: user.email, role: user.role },
         process.env.SECRET_KEY,
-        { expiresIn: "7d" }
+        { expiresIn: "1d" }
       );
 
       return this.sendResponse(req, res, {
@@ -254,7 +254,58 @@ class User extends Response {
       });
     }
   };
+
+  checkUser = async (req, res) => {
+    try {
+      const authHeader = req.headers["authorization"];
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return this.sendResponse(req, res, {
+          data: null,
+          message: "No token provided",
+          status: 401,
+        });
+      }
+
+      const token = authHeader.split(" ")[1];
+
+      // Verify token
+      let decoded;
+      try {
+        decoded = jwt.verify(token, process.env.SECRET_KEY);
+      } catch (err) {
+        return this.sendResponse(req, res, {
+          data: null,
+          message: "Invalid or expired token",
+          status: 401,
+        });
+      }
+
+      // Fetch user from DB
+      const user = await UserModel.findById(decoded.id).select("-password");
+      if (!user) {
+        return this.sendResponse(req, res, {
+          data: null,
+          message: "User not found",
+          status: 404,
+        });
+      }
+
+      return this.sendResponse(req, res, {
+        data: user,
+        message: "User verified successfully",
+        status: 200,
+      });
+    } catch (err) {
+      console.error(err);
+      return this.sendResponse(req, res, {
+        data: null,
+        message: "Failed to check user",
+        status: 500,
+      });
+    }
+  };
 }
+
 module.exports = {
   User,
 };
