@@ -5,7 +5,7 @@ const refreshAuth = require("../middleware/refresh");
 
 const handler = new SalesController();
 
-router.post("/", auth, handler.recordSale);
+router.post("/",  handler.recordSale);
 router.get("/today", handler.getTodayTotalSales);
 router.get("/all", handler.getAllSales);
 router.get("/invoices", handler.getAllInvoices);
