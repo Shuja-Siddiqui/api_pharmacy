@@ -29,6 +29,13 @@ const saleSchema = new Schema(
       required: true,
       min: 0,
     },
+    discount: {
+      type: Number,
+      min: 0,
+    },
+    discountType: {
+      type: String,
+    },
     soldAt: {
       type: Date,
       default: Date.now,
