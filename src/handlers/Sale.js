@@ -295,14 +295,22 @@ class SalesController extends Response {
   getAllSales = async (req, res) => {
     try {
       const sales = await SaleModel.find()
-        .populate("product", "name price")
+        .populate({
+          path: "product",
+          select: "name price category",
+          populate: {
+            path: "category",
+            select: "name"
+          }
+        })
         .sort({ soldAt: -1 });
-      console.log(sales);
+
       return this.sendResponse(req, res, {
         data: sales,
         message: "All sales retrieved successfully",
         status: 200,
       });
+
     } catch (error) {
       console.error(error);
       return this.sendResponse(req, res, {
@@ -312,6 +320,7 @@ class SalesController extends Response {
       });
     }
   };
+
   getAllInvoices = async (req, res) => {
     try {
       const invoice = await InvoiceModel.find()

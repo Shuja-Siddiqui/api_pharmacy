@@ -130,9 +130,15 @@ class ReturnController extends Response {
   getAllReturnProducts = async (req, res) => {
     try {
       const products = await ReturnModel.find()
-        .populate("product", "name") // Populate category name
-        .sort({ returnedAt: -1 }); // Sort alphabetically
-      console.log(products);
+        .populate({
+          path: "product",
+          select: "name price category",
+          populate: {
+            path: "category",
+            select: "name"
+          }
+        })
+        .sort({ returnedAt: -1 });
       return this.sendResponse(req, res, {
         data: products,
         message: "Products retrieved successfully",
